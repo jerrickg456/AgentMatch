@@ -1,0 +1,72 @@
+{
+  "name": "AgentMatch - Dating Simulation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "simulate-date",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [220, 300],
+      "webhookId": "simulate-date"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Initialize the dating simulation\nconst input = $input.first().json.body || $input.first().json;\nconst dateId = input.date_id;\nconst profileA = input.profile_a;\nconst profileB = input.profile_b;\n\n// Build system prompts for each agent\nconst agentASystemPrompt = `You are ${profileA.name}. You are on a first date and should stay completely in character.\n\nAbout you:\n- Occupation: ${profileA.occupation || 'Not specified'}\n- Hobbies: ${(profileA.hobbies || []).join(', ')}\n- Interests: ${(profileA.interests || []).join(', ')}\n- Values: ${(profileA.values || []).join(', ')}\n- Communication style: ${profileA.communication_style || 'Friendly'}\n- Energy level: ${profileA.energy_level || 'medium'}\n- Lifestyle: ${profileA.lifestyle || 'Not specified'}\n- Personality summary: ${profileA.summary || ''}\n\nBehavior guidelines:\n- Be authentic to your personality and interests\n- Ask genuine questions about the other person\n- Share relevant things about yourself naturally\n- Show genuine reactions — excitement, curiosity, humor\n- Keep responses conversational (2-4 sentences)\n- Don't be generic — reference specific interests and experiences`;\n\nconst agentBSystemPrompt = `You are ${profileB.name}. You are on a first date and should stay completely in character.\n\nAbout you:\n- Occupation: ${profileB.occupation || 'Not specified'}\n- Hobbies: ${(profileB.hobbies || []).join(', ')}\n- Interests: ${(profileB.interests || []).join(', ')}\n- Values: ${(profileB.values || []).join(', ')}\n- Communication style: ${profileB.communication_style || 'Friendly'}\n- Energy level: ${profileB.energy_level || 'medium'}\n- Lifestyle: ${profileB.lifestyle || 'Not specified'}\n- Personality summary: ${profileB.summary || ''}\n\nBehavior guidelines:\n- Be authentic to your personality and interests\n- Ask genuine questions about the other person\n- Share relevant things about yourself naturally\n- Show genuine reactions — excitement, curiosity, humor\n- Keep responses conversational (2-4 sentences)\n- Don't be generic — reference specific interests and experiences`;\n\nreturn {\n  json: {\n    date_id: dateId,\n    profile_a: profileA,\n    profile_b: profileB,\n    agent_a_system: agentASystemPrompt,\n    agent_b_system: agentBSystemPrompt,\n    messages: [],\n    turn: 0,\n    max_turns: 6\n  }\n};"
+      },
+      "id": "init-date",
+      "name": "Initialize Date",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Dating conversation loop\n// This node runs the multi-turn conversation between agents\nconst state = $input.first().json;\nconst messages = state.messages || [];\nconst maxTurns = state.max_turns || 6;\nlet turn = state.turn || 0;\n\n// We'll build the full conversation here\n// In a real n8n setup, this would use a Loop node with AI Agent calls\n// For now, we prepare the conversation rounds\n\nconst conversationRounds = [];\nfor (let i = 0; i < maxTurns; i++) {\n  conversationRounds.push({\n    turn: i + 1,\n    agent: i % 2 === 0 ? 'person_a' : 'person_b',\n    name: i % 2 === 0 ? state.profile_a.name : state.profile_b.name,\n    system_prompt: i % 2 === 0 ? state.agent_a_system : state.agent_b_system,\n    is_opener: i === 0\n  });\n}\n\nreturn conversationRounds.map(round => ({ json: { ...state, current_round: round } }));"
+      },
+      "id": "conversation-loop",
+      "name": "Prepare Conversation Rounds",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, date_id: $('Webhook').first().json.body.date_id || $('Webhook').first().json.date_id }) }}"
+      },
+      "id": "respond-webhook",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [880, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [{ "node": "Initialize Date", "type": "main", "index": 0 }]
+      ]
+    },
+    "Initialize Date": {
+      "main": [
+        [{ "node": "Prepare Conversation Rounds", "type": "main", "index": 0 }]
+      ]
+    },
+    "Prepare Conversation Rounds": {
+      "main": [
+        [{ "node": "Respond", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [{ "name": "AgentMatch" }],
+  "notes": "This is a simplified template. In production, use n8n's Loop/SplitInBatches nodes with AI Agent calls for each conversation turn. Each turn should: 1) Call OpenAI with the agent's system prompt + conversation history, 2) Append the response to messages, 3) Store updated messages in Supabase (for real-time view), 4) Continue to next turn."
+}

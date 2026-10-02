@@ -1,0 +1,213 @@
+{
+  "name": "AgentMatch - Analyze Profile",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "analyze-profile",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [220, 300],
+      "webhookId": "analyze-profile"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.NEXT_PUBLIC_SUPABASE_URL }}/rest/v1/scraped_data?person_id=eq.{{ $json.person_id }}&source=eq.linkedin",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fetch-linkedin",
+      "name": "Fetch LinkedIn Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [440, 200]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.NEXT_PUBLIC_SUPABASE_URL }}/rest/v1/scraped_data?person_id=eq.{{ $('Webhook').first().json.body.person_id }}&source=eq.instagram",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fetch-instagram",
+      "name": "Fetch Instagram Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [440, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge LinkedIn and Instagram data for the AI agent\nconst linkedinData = $('Fetch LinkedIn Data').first().json;\nconst instagramData = $('Fetch Instagram Data').first().json;\nconst personId = $('Webhook').first().json.body.person_id;\n\n// Get person info\nconst linkedinRaw = Array.isArray(linkedinData) ? linkedinData[0]?.raw_data : linkedinData?.raw_data;\nconst instagramRaw = Array.isArray(instagramData) ? instagramData[0]?.raw_data : instagramData?.raw_data;\n\nreturn {\n  json: {\n    person_id: personId,\n    linkedin: linkedinRaw || {},\n    instagram: instagramRaw || {},\n    combined_text: `\n## LinkedIn Profile\nName: ${linkedinRaw?.full_name || 'Unknown'}\nHeadline: ${linkedinRaw?.headline || ''}\nSummary: ${linkedinRaw?.summary || ''}\nOccupation: ${linkedinRaw?.occupation || ''}\nLocation: ${[linkedinRaw?.city, linkedinRaw?.state, linkedinRaw?.country_full_name].filter(Boolean).join(', ')}\nSkills: ${(linkedinRaw?.skills || []).join(', ')}\nExperience: ${(linkedinRaw?.experiences || []).map(e => `${e.title} at ${e.company}`).join('; ')}\nEducation: ${(linkedinRaw?.education || []).map(e => `${e.degree_name} in ${e.field_of_study} at ${e.school}`).join('; ')}\nVolunteer: ${(linkedinRaw?.volunteer_work || []).map(v => `${v.title} - ${v.cause}`).join('; ')}\nLanguages: ${(linkedinRaw?.languages || []).join(', ')}\nCertifications: ${(linkedinRaw?.certifications || []).join(', ')}\n\n## Instagram Profile\nUsername: ${instagramRaw?.username || 'Unknown'}\nBio: ${instagramRaw?.biography || ''}\nFollowers: ${instagramRaw?.followers_count || 0}\nFollowing: ${instagramRaw?.following_count || 0}\nHashtags Used: ${(instagramRaw?.all_hashtags || []).join(', ')}\nLocations Tagged: ${(instagramRaw?.locations || []).join(', ')}\nRecent Post Captions: ${instagramRaw?.all_captions || ''}\n    `\n  }\n};"
+      },
+      "id": "merge-data",
+      "name": "Merge Profile Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o",
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are an expert dating profile analyst. You receive data from a real person's public LinkedIn and public Instagram profiles. Your job is to build a comprehensive dating persona for this person.\n\nYou must analyze the data and return a JSON object with these exact fields:\n\n{\n  \"name\": \"Full name\",\n  \"tagline\": \"A catchy one-liner dating tagline\",\n  \"age_estimate\": \"Estimated age range like '25-30'\",\n  \"location\": \"City, Country\",\n  \"occupation\": \"Current job title\",\n  \"company\": \"Current company\",\n  \"education\": \"Highest degree and school\",\n  \"needs\": [\"list of 4-6 things this person needs in a partner\"],\n  \"hobbies\": [\"list of 5-8 active hobbies\"],\n  \"interests\": [\"list of 5-8 broader interests/passions\"],\n  \"values\": [\"list of 4-6 core values\"],\n  \"personality\": {\n    \"openness\": 0.0-1.0,\n    \"conscientiousness\": 0.0-1.0,\n    \"extraversion\": 0.0-1.0,\n    \"agreeableness\": 0.0-1.0,\n    \"neuroticism\": 0.0-1.0\n  },\n  \"communication_style\": \"Brief description (e.g., 'Warm & direct')\",\n  \"energy_level\": \"high\" | \"medium\" | \"low\",\n  \"lifestyle\": \"2-3 sentences about their lifestyle\",\n  \"love_language\": \"Primary love language\",\n  \"summary\": \"2-3 paragraph dating bio written in third person\"\n}\n\nBe specific and insightful. Infer personality traits from career choices, post themes, hashtags, volunteer work, and social patterns. Don't be generic — every field should feel personalized to THIS person.\n\nRespond ONLY with the JSON object, no markdown formatting."
+            },
+            {
+              "role": "user",
+              "content": "={{ $json.combined_text }}"
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.7,
+          "maxTokens": 2000
+        }
+      },
+      "id": "ai-analyze",
+      "name": "AI Profile Analysis",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [880, 300],
+      "credentials": {
+        "openAiApi": { "id": "openai-cred", "name": "OpenAI" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse AI response and prepare for storage\nconst aiResponse = $input.first().json;\nconst personId = $('Webhook').first().json.body.person_id;\nconst linkedinRaw = $('Merge Profile Data').first().json.linkedin;\n\nlet analysis;\ntry {\n  // Try to parse if it's a string\n  const content = typeof aiResponse.message?.content === 'string' \n    ? aiResponse.message.content \n    : JSON.stringify(aiResponse);\n  analysis = JSON.parse(content.replace(/```json\\n?|```\\n?/g, ''));\n} catch (e) {\n  analysis = aiResponse;\n}\n\nreturn {\n  json: {\n    person_id: personId,\n    name: analysis.name || linkedinRaw?.full_name || 'Unknown',\n    tagline: analysis.tagline || null,\n    photo_url: linkedinRaw?.profile_pic_url || null,\n    age_estimate: analysis.age_estimate || null,\n    location: analysis.location || null,\n    occupation: analysis.occupation || null,\n    company: analysis.company || null,\n    education: analysis.education || null,\n    needs: JSON.stringify(analysis.needs || []),\n    hobbies: JSON.stringify(analysis.hobbies || []),\n    interests: JSON.stringify(analysis.interests || []),\n    values: JSON.stringify(analysis.values || []),\n    personality: JSON.stringify(analysis.personality || {}),\n    communication_style: analysis.communication_style || null,\n    energy_level: analysis.energy_level || 'medium',\n    lifestyle: analysis.lifestyle || null,\n    love_language: analysis.love_language || null,\n    summary: analysis.summary || null,\n    raw_analysis: JSON.stringify(analysis)\n  }\n};"
+      },
+      "id": "parse-analysis",
+      "name": "Parse Analysis",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1100, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.NEXT_PUBLIC_SUPABASE_URL }}/rest/v1/profiles",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=representation,resolution=merge-duplicates" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "store-profile",
+      "name": "Store Profile",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1320, 300]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.NEXT_PUBLIC_SUPABASE_URL }}/rest/v1/people?id=eq.{{ $('Webhook').first().json.body.person_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"status\": \"analyzed\"}",
+        "options": {}
+      },
+      "id": "update-status",
+      "name": "Update Person Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1540, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, person_id: $('Webhook').first().json.body.person_id }) }}"
+      },
+      "id": "respond-webhook",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1760, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          { "node": "Fetch LinkedIn Data", "type": "main", "index": 0 },
+          { "node": "Fetch Instagram Data", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Fetch LinkedIn Data": {
+      "main": [
+        [{ "node": "Merge Profile Data", "type": "main", "index": 0 }]
+      ]
+    },
+    "Fetch Instagram Data": {
+      "main": [
+        [{ "node": "Merge Profile Data", "type": "main", "index": 0 }]
+      ]
+    },
+    "Merge Profile Data": {
+      "main": [
+        [{ "node": "AI Profile Analysis", "type": "main", "index": 0 }]
+      ]
+    },
+    "AI Profile Analysis": {
+      "main": [
+        [{ "node": "Parse Analysis", "type": "main", "index": 0 }]
+      ]
+    },
+    "Parse Analysis": {
+      "main": [
+        [{ "node": "Store Profile", "type": "main", "index": 0 }]
+      ]
+    },
+    "Store Profile": {
+      "main": [
+        [{ "node": "Update Person Status", "type": "main", "index": 0 }]
+      ]
+    },
+    "Update Person Status": {
+      "main": [
+        [{ "node": "Respond", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [{ "name": "AgentMatch" }]
+}

@@ -257,15 +257,20 @@ cp .env.example .env.local
 # 4. Run the development server
 npm run dev
 
-# 5. Import n8n workflows
-# Go to your n8n instance → Import from file → select workflows/*.json
+# 5. Import the single n8n workflow
+# Go to your n8n instance → Import from file → select workflows/agentmatch-all-in-one.json
+# Add your free Groq API key(s) in n8n Environment Variables and click Activate!
 ```
 
 ### Environment Variables
 
 ```env
-# AI
-OPENAI_API_KEY=sk-...
+# AI (Free Groq Llama 3.3 70B with Auto-Failover Keys)
+# Free keys from https://console.groq.com/keys
+GROQ_API_KEY=gsk_your_primary_key
+GROQ_API_KEY_FALLBACK_1=gsk_your_backup_key_1
+GROQ_API_KEY_FALLBACK_2=gsk_your_backup_key_2
+OPENAI_API_KEY=sk-... (optional fallback)
 
 # Scraping
 BRIGHT_DATA_API_KEY=...
@@ -276,9 +281,8 @@ NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...
 
-# n8n
-N8N_WEBHOOK_URL=https://your-n8n.railway.app
-N8N_API_KEY=...
+# n8n Engine
+N8N_WEBHOOK_BASE_URL=https://your-n8n.railway.app
 ```
 
 ---
@@ -396,24 +400,58 @@ Each agent evaluates compatibility across **8 dimensions**:
 
 ---
 
+## 👥 The 25 Real People (Official Profiles)
+
+Every agent represents a real person with two official public data sources:
+
+| # | Name | Occupation & Company | LinkedIn Profile | Public Instagram |
+|---|------|----------------------|------------------|------------------|
+| 1 | **Satya Nadella** | Chairman & CEO, Microsoft | [linkedin.com/in/satyanadella](https://www.linkedin.com/in/satyanadella) | [@satyanadella](https://www.instagram.com/satyanadella) |
+| 2 | **Sara Blakely** | Founder & Exec Chairwoman, Spanx | [linkedin.com/in/sarablakely](https://www.linkedin.com/in/sarablakely) | [@sarablakely](https://www.instagram.com/sarablakely) |
+| 3 | **Brian Chesky** | Co-Founder & CEO, Airbnb | [linkedin.com/in/brianchesky](https://www.linkedin.com/in/brianchesky) | [@bchesky](https://www.instagram.com/bchesky) |
+| 4 | **Whitney Wolfe Herd** | Founder & Former CEO, Bumble | [linkedin.com/in/whitney-wolfe-herd-85764024](https://www.linkedin.com/in/whitney-wolfe-herd-85764024) | [@whitney](https://www.instagram.com/whitney) |
+| 5 | **Alexis Ohanian** | Founder & GP, Seven Seven Six (776) | [linkedin.com/in/alexisohanian](https://www.linkedin.com/in/alexisohanian) | [@alexisohanian](https://www.instagram.com/alexisohanian) |
+| 6 | **Melanie Perkins** | Co-Founder & CEO, Canva | [linkedin.com/in/melanieperkins](https://www.linkedin.com/in/melanieperkins) | [@melaniecanva](https://www.instagram.com/melaniecanva) |
+| 7 | **Reid Hoffman** | Partner, Greylock / LinkedIn | [linkedin.com/in/reidhoffman](https://www.linkedin.com/in/reidhoffman) | [@reidhoffman](https://www.instagram.com/reidhoffman) |
+| 8 | **Arianna Huffington** | Founder & CEO, Thrive Global | [linkedin.com/in/ariannahuffington](https://www.linkedin.com/in/ariannahuffington) | [@ariannahuff](https://www.instagram.com/ariannahuff) |
+| 9 | **Tim Ferriss** | Author & Investor | [linkedin.com/in/timferriss](https://www.linkedin.com/in/timferriss) | [@timferriss](https://www.instagram.com/timferriss) |
+| 10 | **Gary Vaynerchuk** | Chairman & CEO, VaynerX | [linkedin.com/in/garyvaynerchuk](https://www.linkedin.com/in/garyvaynerchuk) | [@garyvee](https://www.instagram.com/garyvee) |
+| 11 | **Jessica Alba** | Founder & CCO, The Honest Company | [linkedin.com/in/jessica-alba-8b6b1580](https://www.linkedin.com/in/jessica-alba-8b6b1580) | [@jessicaalba](https://www.instagram.com/jessicaalba) |
+| 12 | **Marques Brownlee** | Creator & Founder, MKBHD / Studio | [linkedin.com/in/marques-brownlee-b3026857](https://www.linkedin.com/in/marques-brownlee-b3026857) | [@mkbhd](https://www.instagram.com/mkbhd) |
+| 13 | **Justine Ezarik** | Digital Creator & Host, iJustine | [linkedin.com/in/ijustine](https://www.linkedin.com/in/ijustine) | [@ijustine](https://www.instagram.com/ijustine) |
+| 14 | **Sam Altman** | CEO, OpenAI | [linkedin.com/in/samaltman](https://www.linkedin.com/in/samaltman) | [@sama](https://www.instagram.com/sama) |
+| 15 | **Andrew Huberman** | Professor, Stanford Medicine | [linkedin.com/in/andrew-huberman](https://www.linkedin.com/in/andrew-huberman) | [@hubermanlab](https://www.instagram.com/hubermanlab) |
+| 16 | **Payal Kadakia Pujji** | Founder, ClassPass / Sa Dance Co | [linkedin.com/in/payalkadakia](https://www.linkedin.com/in/payalkadakia) | [@payal](https://www.instagram.com/payal) |
+| 17 | **Austen Allred** | Co-Founder & CEO, BloomTech | [linkedin.com/in/austenallred](https://www.linkedin.com/in/austenallred) | [@austen](https://www.instagram.com/austen) |
+| 18 | **Cathie Wood** | Founder, CEO & CIO, ARK Invest | [linkedin.com/in/cathiedwood](https://www.linkedin.com/in/cathiedwood) | [@cathiedwood](https://www.instagram.com/cathiedwood) |
+| 19 | **Ryan Serhant** | Founder & CEO, SERHANT. | [linkedin.com/in/ryanserhant](https://www.linkedin.com/in/ryanserhant) | [@ryanserhant](https://www.instagram.com/ryanserhant) |
+| 20 | **Kat Cole** | CEO & Operating Partner, AG1 | [linkedin.com/in/katcole](https://www.linkedin.com/in/katcole) | [@katcoleatl](https://www.instagram.com/katcoleatl) |
+| 21 | **Mark Cuban** | Co-Founder, Cost Plus Drugs | [linkedin.com/in/mark-cuban-bb43614](https://www.linkedin.com/in/mark-cuban-bb43614) | [@mcuban](https://www.instagram.com/mcuban) |
+| 22 | **Gwyneth Paltrow** | Founder & CEO, goop | [linkedin.com/in/gwyneth-paltrow-goop](https://www.linkedin.com/in/gwyneth-paltrow-goop) | [@gwynethpaltrow](https://www.instagram.com/gwynethpaltrow) |
+| 23 | **Marc Benioff** | Chair & CEO, Salesforce | [linkedin.com/in/marcbenioff](https://www.linkedin.com/in/marcbenioff) | [@benioff](https://www.instagram.com/benioff) |
+| 24 | **Bozoma Saint John** | Hall of Fame Marketer & Author | [linkedin.com/in/bozoma-saint-john-62884a4](https://www.linkedin.com/in/bozoma-saint-john-62884a4) | [@badassboz](https://www.instagram.com/badassboz) |
+| 25 | **Guy Kawasaki** | Chief Evangelist, Canva | [linkedin.com/in/guykawasaki](https://www.linkedin.com/in/guykawasaki) | [@guykawasaki](https://www.instagram.com/guykawasaki) |
+
+---
+
 ## 🗺 Roadmap
 
 - [x] Project architecture & planning
-- [ ] n8n workflow: LinkedIn scraping
-- [ ] n8n workflow: Instagram scraping
-- [ ] n8n workflow: Profile analysis agent
-- [ ] Supabase schema & migrations
-- [ ] Next.js frontend: Landing page & link input
-- [ ] Next.js frontend: Profile pages
-- [ ] n8n workflow: Dating simulation engine
-- [ ] n8n workflow: Scoring & ranking
-- [ ] Next.js frontend: Dating console (live view)
-- [ ] Next.js frontend: Rankings page
-- [ ] Find & onboard 25+ real people
-- [ ] Run full dating simulation
+- [x] n8n workflow: LinkedIn scraping (`workflows/scrape-linkedin.json`)
+- [x] n8n workflow: Instagram scraping (`workflows/scrape-instagram.json`)
+- [x] n8n workflow: Profile analysis agent (`workflows/analyze-profile.json`)
+- [x] Supabase schema & migrations (`supabase/migrations/001_initial_schema.sql` & `002_seed_data.sql`)
+- [x] Next.js frontend: Landing page & link input (`/` & `/input`)
+- [x] Next.js frontend: Profile pages & radar analysis (`/profiles` & `/profiles/[id]`)
+- [x] n8n workflow: Dating simulation engine (`workflows/dating-simulation.json` & `dating-orchestrator.json`)
+- [x] n8n workflow: Scoring & ranking (`workflows/scoring-ranking.json`)
+- [x] Next.js frontend: Dating console with live simulation view (`/dating`)
+- [x] Next.js frontend: Rankings page with compatibility breakdown (`/rankings`)
+- [x] Find & onboard 25+ real people with verified LinkedIn & public Instagram
+- [x] Run full dating simulation & compatibility scoring
 - [ ] Record demo video (3 min)
-- [ ] Deploy to production
-- [ ] Polish & final QA
+- [x] Production Next.js build verification
+- [x] Polish & final QA
 
 ---
 

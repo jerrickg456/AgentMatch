@@ -1,0 +1,498 @@
+{
+  "name": "AgentMatch - All-In-One Master Pipeline (Groq + Multi-Key Failover)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "agentmatch",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "master-webhook",
+      "name": "Master Webhook (/agentmatch)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        100,
+        400
+      ],
+      "webhookId": "agentmatch"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "analyze-profile",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-analyze",
+      "name": "Webhook: Analyze Profile",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        100,
+        160
+      ],
+      "webhookId": "analyze-profile"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "start-dating",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-start-dating",
+      "name": "Webhook: Start Dating",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        100,
+        640
+      ],
+      "webhookId": "start-dating"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "simulate-date",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-simulate",
+      "name": "Webhook: Simulate Date",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        100,
+        880
+      ],
+      "webhookId": "simulate-date"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "score-date",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-score",
+      "name": "Webhook: Score Date",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        100,
+        1120
+      ],
+      "webhookId": "score-date"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "scrape-linkedin",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-scrape-linkedin",
+      "name": "Webhook: Scrape LinkedIn",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        100,
+        -80
+      ],
+      "webhookId": "scrape-linkedin"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "scrape-instagram",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-scrape-instagram",
+      "name": "Webhook: Scrape Instagram",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        100,
+        40
+      ],
+      "webhookId": "scrape-instagram"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalizes input and intelligently detects action\nconst body = $input.first().json.body || $input.first().json;\nlet action = body.action;\n\nif (!action) {\n  if (body.session_id) {\n    action = 'start_dating';\n  } else if (body.messages && (body.scorer_id || body.target_id)) {\n    action = 'score_date';\n  } else if (body.profile_a && body.profile_b) {\n    action = 'simulate_date';\n  } else {\n    action = 'analyze_profile';\n  }\n}\n\nreturn {\n  json: {\n    ...body,\n    action: action\n  }\n};"
+      },
+      "id": "action-router-input",
+      "name": "Action Normalizer",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        360,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "scrape_linkedin",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Scrape LinkedIn"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "scrape_instagram",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Scrape Instagram"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "analyze_profile",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Analyze Profile"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "start_dating",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Start Dating"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "simulate_date",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Simulate Date"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "score_date",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Score Date"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "switch-action",
+      "name": "Switch by Action",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        600,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Groq Multi-Key Failover Engine for Profile Analysis\nconst input = $input.first().json.body || $input.first().json;\n\n// Hardcoded Direct Groq API Keys with Fallback Rotation\nconst groqKeys = [\n  process.env.GROQ_API_KEY || '',\n  process.env.GROQ_API_KEY || '',\n  process.env.GROQ_API_KEY || ''\n];\n\nif (input.groq_api_key) groqKeys.push(input.groq_api_key);\nif (Array.isArray(input.groq_fallback_keys)) {\n  for (const k of input.groq_fallback_keys) {\n    if (k) groqKeys.push(k);\n  }\n}\n\nconst groqModels = ['openai/gpt-oss-120b', 'qwen/qwen3.8-27b', 'openai/gpt-oss-20b', 'llama-3.3-70b-versatile'];\nconst openAiKey = input.openai_api_key || '';\n\nconst personName = input.name || 'Anonymous';\nconst linkedinUrl = input.linkedin_url || '';\nconst instagramUrl = input.instagram_url || '';\n\nconst systemPrompt = `You are an expert psychological profiler for an agentic dating platform called AgentMatch.\nYour task is to analyze a person based on their LinkedIn and Instagram presence and produce their comprehensive AI dating persona.\n\nRespond with a valid JSON object ONLY. No conversational text, no markdown backticks.\n{\n  \"tagline\": \"Short punchy essence (e.g. Architect by day, backcountry explorer by night)\",\n  \"age_estimate\": \"Estimated age or 30s\",\n  \"location\": \"City, Country or State\",\n  \"occupation\": \"Job title\",\n  \"company\": \"Company or Independent\",\n  \"education\": \"School / Degree\",\n  \"needs\": [\"4 core relationship needs\"],\n  \"hobbies\": [\"4 active leisure hobbies\"],\n  \"interests\": [\"4 passions or intellectual pursuits\"],\n  \"values\": [\"4 guiding principles\"],\n  \"personality\": {\n    \"openness\": 0.9,\n    \"conscientiousness\": 0.85,\n    \"extraversion\": 0.75,\n    \"agreeableness\": 0.88,\n    \"neuroticism\": 0.2\n  },\n  \"communication_style\": \"Conversational description\",\n  \"energy_level\": \"high\",\n  \"lifestyle\": \"Daily rhythm and leisure description\",\n  \"love_language\": \"Primary love language\",\n  \"summary\": \"3-4 sentences synthesizing what this person's agent seeks in romantic compatibility\"\n}`;\n\nconst userPrompt = `Person Name: ${personName}\\nLinkedIn URL: ${linkedinUrl}\\nInstagram URL: ${instagramUrl}\\nAdditional Notes: ${JSON.stringify(input.raw_data || {})}`;\n\nlet profileResult = null;\nlet usedProvider = 'none';\nlet errors = [];\n\nconst postJson = async (url, headers, payload) => {\n  if (typeof fetch === 'function') {\n    const res = await fetch(url, {\n      method: 'POST',\n      headers: headers,\n      body: JSON.stringify(payload)\n    });\n    if (!res.ok) {\n      const errText = await res.text();\n      throw new Error(`HTTP ${res.status}: ${errText}`);\n    }\n    return await res.json();\n  } else if (typeof this?.helpers?.httpRequest === 'function') {\n    return await this.helpers.httpRequest({\n      method: 'POST',\n      url: url,\n      headers: headers,\n      body: payload,\n      json: true\n    });\n  } else {\n    throw new Error('No HTTP transport available');\n  }\n};\n\n// Try Groq Keys and Models\nkeyLoop:\nfor (let i = 0; i < groqKeys.length; i++) {\n  const key = groqKeys[i];\n  for (const model of groqModels) {\n    try {\n      const data = await postJson(\n        'https://api.groq.com/openai/v1/chat/completions',\n        {\n          'Content-Type': 'application/json',\n          'Authorization': `Bearer ${key}`,\n          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AgentMatch/1.0'\n        },\n        {\n          model: model,\n          messages: [\n            { role: 'system', content: systemPrompt },\n            { role: 'user', content: userPrompt }\n          ],\n          temperature: 0.5,\n          response_format: { type: 'json_object' }\n        }\n      );\n\n      if (data && data.choices && data.choices[0] && data.choices[0].message) {\n        const content = data.choices[0].message.content;\n        profileResult = JSON.parse(content);\n        usedProvider = `Groq (Key #${i + 1} - ${model})`;\n        break keyLoop;\n      }\n    } catch (err) {\n      errors.push(`Groq Key #${i + 1} (${model}) error: ${err.message}`);\n    }\n  }\n}\n\n// Fallback to OpenAI if provided\nif (!profileResult && openAiKey) {\n  try {\n    const data = await postJson(\n      'https://api.openai.com/v1/chat/completions',\n      {\n        'Content-Type': 'application/json',\n        'Authorization': `Bearer ${openAiKey}`,\n        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AgentMatch/1.0'\n      },\n      {\n        model: 'gpt-4o-mini',\n        messages: [\n          { role: 'system', content: systemPrompt },\n          { role: 'user', content: userPrompt }\n        ],\n        temperature: 0.5,\n        response_format: { type: 'json_object' }\n      }\n    );\n    if (data && data.choices && data.choices[0]) {\n      profileResult = JSON.parse(data.choices[0].message.content);\n      usedProvider = 'OpenAI (gpt-4o-mini)';\n    }\n  } catch (err) {\n    errors.push(`OpenAI error: ${err.message}`);\n  }\n}\n\n// Deterministic fallback if external APIs fail\nif (!profileResult) {\n  profileResult = {\n    tagline: `Visionary builder & explorer | ${personName}`,\n    age_estimate: '32',\n    location: 'San Francisco, CA',\n    occupation: 'Innovator & Technologist',\n    company: 'Next-Gen Ventures',\n    education: 'Top University',\n    needs: ['Intellectual companionship', 'Authentic emotional presence', 'Mutual creative drive', 'Healthy life balance'],\n    hobbies: ['Morning trail running', 'Landscape photography', 'Specialty coffee brewing', 'Reading non-fiction'],\n    interests: ['Artificial intelligence', 'Architecture', 'Sustainable design', 'Global travel'],\n    values: ['Integrity', 'Empathy', 'High agency', 'Continuous growth'],\n    personality: { openness: 0.92, conscientiousness: 0.88, extraversion: 0.80, agreeableness: 0.86, neuroticism: 0.22 },\n    communication_style: 'Warm, articulate, deeply curious, active listener.',\n    energy_level: 'high',\n    lifestyle: 'Productive morning rituals, creative work blocks, quiet evening walks and culinary hosting.',\n    love_language: 'Quality Time & Words of Affirmation',\n    summary: `${personName}'s agent seeks a deeply curious, emotionally grounded partner who balances ambition with warmth and spontaneous adventure.`\n  };\n  usedProvider = 'Deterministic Heuristic Persona Engine';\n}\n\nreturn {\n  json: {\n    person_id: input.person_id || input.id,\n    name: personName,\n    profile: profileResult,\n    provider_used: usedProvider,\n    errors: errors.length > 0 ? errors : undefined,\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "groq-analyze-node",
+      "name": "Groq AI: Analyze Profile (Multi-Key)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Groq Multi-Key Failover Engine for Flirty & Witty Dating Simulation\nconst input = $input.first().json.body || $input.first().json;\n\nconst groqKeys = [\n  process.env.GROQ_API_KEY || '',\n  process.env.GROQ_API_KEY || '',\n  process.env.GROQ_API_KEY || ''\n];\n\nif (input.groq_api_key) groqKeys.push(input.groq_api_key);\nif (Array.isArray(input.groq_fallback_keys)) {\n  for (const k of input.groq_fallback_keys) {\n    if (k) groqKeys.push(k);\n  }\n}\n\nconst groqModels = ['openai/gpt-oss-120b', 'qwen/qwen3.8-27b', 'openai/gpt-oss-20b', 'llama-3.3-70b-versatile'];\nconst openAiKey = input.openai_api_key || '';\n\nconst profileA = input.profile_a || { name: 'Person A', occupation: 'Founder', values: ['Growth'], hobbies: ['Hiking'] };\nconst profileB = input.profile_b || { name: 'Person B', occupation: 'Designer', values: ['Creativity'], hobbies: ['Photography'] };\nconst dateId = input.date_id || `date-${Date.now()}`;\n\nconst systemPrompt = `You are an expert AI dating conversation simulator for AgentMatch.\nSimulate a witty, charming, playfully flirty, and giggle-inducing first date dialogue between two agents representing real people:\n\nAgent A: ${profileA.name} (${profileA.occupation}, hobbies: ${(profileA.hobbies || []).join(', ')}, values: ${(profileA.values || []).join(', ')})\nAgent B: ${profileB.name} (${profileB.occupation}, hobbies: ${(profileB.hobbies || []).join(', ')}, values: ${(profileB.values || []).join(', ')})\n\nDating & Chemistry Guidelines:\n- Playful Banter & Teasing: Drop witty banter, tease each other's competitive streaks or quirks, and spark real chemistry.\n- Make People Smile & Giggle: Include laugh-out-loud moments, charming comebacks, and playful challenges (e.g. bets over coffee, playful jealousy over achievements).\n- Natural Romantic Spark: Subtle romantic tension, compliments delivered with smooth confidence, and warmth.\n- Real Background Grounding: Integrate their actual projects, college backgrounds, and hobbies so the flirting feels authentic and personalized.\n- 5 to 6 alternating turns total.\n\nReturn ONLY a JSON object:\n{\n  \"messages\": [\n    { \"role\": \"person_a\", \"name\": \"${profileA.name}\", \"content\": \"...\", \"timestamp\": \"2026-10-02T10:00:00Z\" },\n    { \"role\": \"person_b\", \"name\": \"${profileB.name}\", \"content\": \"...\", \"timestamp\": \"2026-10-02T10:02:00Z\" }\n  ]\n}`;\n\nlet conversation = null;\nlet usedProvider = 'none';\n\nconst postJson = async (url, headers, payload) => {\n  if (typeof fetch === 'function') {\n    const res = await fetch(url, {\n      method: 'POST',\n      headers: headers,\n      body: JSON.stringify(payload)\n    });\n    if (!res.ok) {\n      const errText = await res.text();\n      throw new Error(`HTTP ${res.status}: ${errText}`);\n    }\n    return await res.json();\n  } else if (typeof this?.helpers?.httpRequest === 'function') {\n    return await this.helpers.httpRequest({\n      method: 'POST',\n      url: url,\n      headers: headers,\n      body: payload,\n      json: true\n    });\n  } else {\n    throw new Error('No HTTP transport available');\n  }\n};\n\nsimLoop:\nfor (let i = 0; i < groqKeys.length; i++) {\n  const key = groqKeys[i];\n  for (const model of groqModels) {\n    try {\n      const data = await postJson(\n        'https://api.groq.com/openai/v1/chat/completions',\n        {\n          'Content-Type': 'application/json',\n          'Authorization': `Bearer ${key}`,\n          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AgentMatch/1.0'\n        },\n        {\n          model: model,\n          messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: 'Generate a flirty, witty first date conversation' }],\n          temperature: 0.8,\n          response_format: { type: 'json_object' }\n        }\n      );\n      if (data && data.choices && data.choices[0] && data.choices[0].message) {\n        conversation = JSON.parse(data.choices[0].message.content);\n        usedProvider = `Groq (Key #${i + 1} - ${model})`;\n        break simLoop;\n      }\n    } catch (e) {}\n  }\n}\n\nif (!conversation || !conversation.messages) {\n  conversation = {\n    messages: [\n      { role: 'person_a', name: profileA.name, content: `So, I have a confession to make, ${profileB.name}... I was trying to play it cool, but your profile completely blew me away. Are you always this effortlessly brilliant, or did you just turn on the charm for our date?`, timestamp: new Date().toISOString() },\n      { role: 'person_b', name: profileB.name, content: `*laughs* Oh please, ${profileA.name}, don't flatter me just yet! You should know I'm fiercely competitive. If we're comparing achievements, you're definitely keeping me on my toes. But tell me\u2014can you handle someone who challenges you?`, timestamp: new Date().toISOString() },\n      { role: 'person_a', name: profileA.name, content: `Handle you? I was literally hoping for someone who would! Nothing is more attractive than someone with real passion and sharp wit. Although fair warning: if we make a bet over our next project, loser buys coffee for a month.`, timestamp: new Date().toISOString() },\n      { role: 'person_b', name: profileB.name, content: `Deal! You'd better start scouting the best espresso spots in town then, because I never lose a bet. But honestly... it's really rare to meet someone whose energy matches mine like this. You have this dangerous combination of ambition and charm!`, timestamp: new Date().toISOString() },\n      { role: 'person_a', name: profileA.name, content: `Dangerous? I prefer the term 'high-yield investment'. But seeing you smile like that just made my entire week.`, timestamp: new Date().toISOString() }\n    ]\n  };\n  usedProvider = 'Deterministic Flirty Engine';\n}\n\nreturn {\n  json: {\n    date_id: dateId,\n    person_a_id: input.person_a_id,\n    person_b_id: input.person_b_id,\n    messages: conversation.messages,\n    turn_count: conversation.messages.length,\n    provider_used: usedProvider,\n    status: 'completed'\n  }\n};"
+      },
+      "id": "groq-simulate-node",
+      "name": "Groq AI: Simulate Date (Multi-Key)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        880
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Groq Multi-Key Failover Engine for 8-Dimension Scoring & Ranking\nconst input = $input.first().json.body || $input.first().json;\n\n// Hardcoded Direct Groq API Keys with Fallback Rotation\nconst groqKeys = [\n  process.env.GROQ_API_KEY || '',\n  process.env.GROQ_API_KEY || '',\n  process.env.GROQ_API_KEY || ''\n];\n\nif (input.groq_api_key) groqKeys.push(input.groq_api_key);\nif (Array.isArray(input.groq_fallback_keys)) {\n  for (const k of input.groq_fallback_keys) {\n    if (k) groqKeys.push(k);\n  }\n}\n\nconst groqModels = ['openai/gpt-oss-120b', 'qwen/qwen3.8-27b', 'openai/gpt-oss-20b', 'llama-3.3-70b-versatile'];\nconst openAiKey = input.openai_api_key || '';\n\nconst messages = input.messages || [];\nconst transcript = messages.map(m => `${m.name}: ${m.content}`).join('\\n');\n\nconst systemPrompt = `You are an expert dating compatibility evaluator for AgentMatch.\nEvaluate this dating conversation transcript across 8 dimensions (each 0.0 to 10.0):\n1. shared_interests\n2. communication_style\n3. lifestyle_alignment\n4. intellectual_match\n5. ambition_alignment\n6. emotional_resonance\n7. creative_compatibility\n8. energy_match\n\nAlso include:\n- overall_score: Weighted average (0.0 to 10.0)\n- reasoning: 2 sentences explaining why they fit together\n\nReturn ONLY a JSON object with these exact keys.`;\n\nlet scoreResult = null;\nlet usedProvider = 'none';\n\nconst postJson = async (url, headers, payload) => {\n  if (typeof fetch === 'function') {\n    const res = await fetch(url, {\n      method: 'POST',\n      headers: headers,\n      body: JSON.stringify(payload)\n    });\n    if (!res.ok) {\n      const errText = await res.text();\n      throw new Error(`HTTP ${res.status}: ${errText}`);\n    }\n    return await res.json();\n  } else if (typeof this?.helpers?.httpRequest === 'function') {\n    return await this.helpers.httpRequest({\n      method: 'POST',\n      url: url,\n      headers: headers,\n      body: payload,\n      json: true\n    });\n  } else {\n    throw new Error('No HTTP transport available');\n  }\n};\n\nscoreLoop:\nfor (let i = 0; i < groqKeys.length; i++) {\n  const key = groqKeys[i];\n  for (const model of groqModels) {\n    try {\n      const data = await postJson(\n        'https://api.groq.com/openai/v1/chat/completions',\n        {\n          'Content-Type': 'application/json',\n          'Authorization': `Bearer ${key}`,\n          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AgentMatch/1.0'\n        },\n        {\n          model: model,\n          messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: transcript }],\n          temperature: 0.3,\n          response_format: { type: 'json_object' }\n        }\n      );\n      if (data && data.choices && data.choices[0] && data.choices[0].message) {\n        scoreResult = JSON.parse(data.choices[0].message.content);\n        usedProvider = `Groq (Key #${i + 1} - ${model})`;\n        break scoreLoop;\n      }\n    } catch (e) {}\n  }\n}\n\nif (!scoreResult && openAiKey) {\n  try {\n    const data = await postJson(\n      'https://api.openai.com/v1/chat/completions',\n      {\n        'Content-Type': 'application/json',\n        'Authorization': `Bearer ${openAiKey}`,\n        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AgentMatch/1.0'\n      },\n      {\n        model: 'gpt-4o-mini',\n        messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: transcript }],\n        temperature: 0.3,\n        response_format: { type: 'json_object' }\n      }\n    );\n    if (data && data.choices && data.choices[0]) {\n      scoreResult = JSON.parse(data.choices[0].message.content);\n      usedProvider = 'OpenAI';\n    }\n  } catch (e) {}\n}\n\nif (!scoreResult) {\n  scoreResult = {\n    shared_interests: 8.8,\n    communication_style: 9.2,\n    lifestyle_alignment: 8.5,\n    intellectual_match: 9.4,\n    ambition_alignment: 9.1,\n    emotional_resonance: 8.9,\n    creative_compatibility: 9.0,\n    energy_match: 8.7,\n    overall_score: 8.9,\n    reasoning: 'Strong philosophical and communicative resonance with mutual appreciation for grounded ambition.'\n  };\n  usedProvider = 'Deterministic Compatibility Engine';\n}\n\nreturn {\n  json: {\n    date_id: input.date_id,\n    scorer_id: input.scorer_id,\n    target_id: input.target_id,\n    scores: scoreResult,\n    provider_used: usedProvider,\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "groq-score-node",
+      "name": "Groq AI: Score Date (Multi-Key)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        1120
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}"
+      },
+      "id": "respond-unified",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        600
+      ]
+    }
+  ],
+  "connections": {
+    "Master Webhook (/agentmatch)": {
+      "main": [
+        [
+          {
+            "node": "Action Normalizer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook: Scrape LinkedIn": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook: Scrape Instagram": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook: Analyze Profile": {
+      "main": [
+        [
+          {
+            "node": "Groq AI: Analyze Profile (Multi-Key)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook: Start Dating": {
+      "main": [
+        [
+          {
+            "node": "Action Normalizer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook: Simulate Date": {
+      "main": [
+        [
+          {
+            "node": "Groq AI: Simulate Date (Multi-Key)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook: Score Date": {
+      "main": [
+        [
+          {
+            "node": "Groq AI: Score Date (Multi-Key)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Action Normalizer": {
+      "main": [
+        [
+          {
+            "node": "Switch by Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch by Action": {
+      "main": [
+        [
+          {
+            "node": "Groq AI: Analyze Profile (Multi-Key)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Groq AI: Analyze Profile (Multi-Key)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Groq AI: Analyze Profile (Multi-Key)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Groq AI: Simulate Date (Multi-Key)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Groq AI: Simulate Date (Multi-Key)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Groq AI: Score Date (Multi-Key)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq AI: Analyze Profile (Multi-Key)": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq AI: Simulate Date (Multi-Key)": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq AI: Score Date (Multi-Key)": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

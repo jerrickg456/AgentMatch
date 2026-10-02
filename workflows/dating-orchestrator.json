@@ -1,0 +1,96 @@
+{
+  "name": "AgentMatch - Dating Orchestrator",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "start-dating",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [220, 300],
+      "webhookId": "start-dating"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Fetch all pending dates for this session\nconst input = $input.first().json.body || $input.first().json;\nconst personIds = input.person_ids || [];\nconst sessionId = input.session_id;\n\nreturn {\n  json: {\n    session_id: sessionId,\n    person_ids: personIds\n  }\n};"
+      },
+      "id": "init-orchestrator",
+      "name": "Initialize Orchestrator",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.NEXT_PUBLIC_SUPABASE_URL }}/rest/v1/dates?status=eq.pending&order=created_at",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fetch-pending-dates",
+      "name": "Fetch Pending Dates",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// For each pending date, fetch both profiles and trigger simulation\nconst dates = $input.all().map(item => item.json);\nconst flatDates = Array.isArray(dates[0]) ? dates[0] : dates;\n\nreturn flatDates.map(date => ({\n  json: {\n    date_id: date.id,\n    person_a_id: date.person_a_id,\n    person_b_id: date.person_b_id\n  }\n}));"
+      },
+      "id": "prepare-date-list",
+      "name": "Prepare Date List",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, message: 'Dating orchestrator started', session_id: $('Initialize Orchestrator').first().json.session_id }) }}"
+      },
+      "id": "respond-webhook",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1100, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [{ "node": "Initialize Orchestrator", "type": "main", "index": 0 }]
+      ]
+    },
+    "Initialize Orchestrator": {
+      "main": [
+        [{ "node": "Fetch Pending Dates", "type": "main", "index": 0 }]
+      ]
+    },
+    "Fetch Pending Dates": {
+      "main": [
+        [{ "node": "Prepare Date List", "type": "main", "index": 0 }]
+      ]
+    },
+    "Prepare Date List": {
+      "main": [
+        [{ "node": "Respond", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [{ "name": "AgentMatch" }],
+  "notes": "Master orchestrator workflow. In production, after Prepare Date List, use SplitInBatches (batch size 5) → for each date: 1) Fetch profiles for person_a and person_b, 2) Call the simulate-date sub-workflow webhook, 3) Wait for completion, 4) Call score-date webhook twice (once per person), 5) After all dates done, trigger ranking generation."
+}

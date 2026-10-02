@@ -1,0 +1,190 @@
+{
+  "name": "AgentMatch - Scrape Instagram",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "scrape-instagram",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [220, 300],
+      "webhookId": "scrape-instagram"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/apify~instagram-profile-scraper/runs",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.APIFY_API_TOKEN }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"directUrls\": [\"{{ $json.instagram_url }}\"],\n  \"resultsLimit\": 20,\n  \"resultsType\": \"posts\",\n  \"addParentData\": true\n}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "apify-start",
+      "name": "Start Instagram Scraper",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "amount": 15,
+        "unit": "seconds"
+      },
+      "id": "wait-node",
+      "name": "Wait for Scraping",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.apify.com/v2/acts/apify~instagram-profile-scraper/runs/{{ $('Start Instagram Scraper').first().json.data.id }}/dataset/items",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.APIFY_API_TOKEN }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "apify-results",
+      "name": "Get Results",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [880, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse and normalize Instagram data\nconst results = $input.all().map(item => item.json);\nconst personId = $('Webhook').first().json.body.person_id;\n\n// The first result is usually the profile\nconst profile = results[0] || {};\nconst posts = results.slice(0, 20);\n\nconst parsed = {\n  person_id: personId,\n  source: 'instagram',\n  raw_data: {\n    username: profile.username || profile.ownerUsername || '',\n    full_name: profile.fullName || profile.ownerFullName || '',\n    biography: profile.biography || '',\n    external_url: profile.externalUrl || '',\n    followers_count: profile.followersCount || 0,\n    following_count: profile.followsCount || 0,\n    posts_count: profile.postsCount || 0,\n    is_verified: profile.verified || false,\n    profile_pic_url: profile.profilePicUrl || '',\n    posts: posts.map(post => ({\n      caption: post.caption || '',\n      hashtags: (post.caption || '').match(/#[\\w]+/g) || [],\n      likes: post.likesCount || 0,\n      comments: post.commentsCount || 0,\n      timestamp: post.timestamp || '',\n      location: post.locationName || '',\n      type: post.type || 'image',\n      url: post.url || '',\n      image_url: post.displayUrl || ''\n    })),\n    // Aggregate hashtags across all posts\n    all_hashtags: [...new Set(\n      posts.flatMap(p => (p.caption || '').match(/#[\\w]+/g) || [])\n    )],\n    // Aggregate locations\n    locations: [...new Set(\n      posts.map(p => p.locationName).filter(Boolean)\n    )],\n    // Content themes (derived from captions)\n    all_captions: posts.map(p => p.caption || '').filter(Boolean).join('\\n\\n')\n  }\n};\n\nreturn { json: parsed };"
+      },
+      "id": "parse-instagram",
+      "name": "Parse Instagram Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1100, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.NEXT_PUBLIC_SUPABASE_URL }}/rest/v1/scraped_data",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "person_id",
+              "value": "={{ $json.person_id }}"
+            },
+            {
+              "name": "source",
+              "value": "instagram"
+            },
+            {
+              "name": "raw_data",
+              "value": "={{ JSON.stringify($json.raw_data) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "store-instagram",
+      "name": "Store in Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1320, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, person_id: $('Webhook').first().json.body.person_id, source: 'instagram', data: $('Parse Instagram Data').first().json.raw_data }) }}"
+      },
+      "id": "respond-webhook",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1540, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [{ "node": "Start Instagram Scraper", "type": "main", "index": 0 }]
+      ]
+    },
+    "Start Instagram Scraper": {
+      "main": [
+        [{ "node": "Wait for Scraping", "type": "main", "index": 0 }]
+      ]
+    },
+    "Wait for Scraping": {
+      "main": [
+        [{ "node": "Get Results", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Results": {
+      "main": [
+        [{ "node": "Parse Instagram Data", "type": "main", "index": 0 }]
+      ]
+    },
+    "Parse Instagram Data": {
+      "main": [
+        [{ "node": "Store in Supabase", "type": "main", "index": 0 }]
+      ]
+    },
+    "Store in Supabase": {
+      "main": [
+        [{ "node": "Respond", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [{ "name": "AgentMatch" }]
+}

@@ -1,0 +1,160 @@
+{
+  "name": "AgentMatch - Scrape LinkedIn",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "scrape-linkedin",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [220, 300],
+      "webhookId": "scrape-linkedin"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://nubela.co/proxycurl/api/v2/linkedin",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.PROXYCURL_API_KEY }}"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "linkedin_profile_url",
+              "value": "={{ $json.linkedin_url }}"
+            },
+            {
+              "name": "skills",
+              "value": "include"
+            },
+            {
+              "name": "use_cache",
+              "value": "if-present"
+            },
+            {
+              "name": "fallback_to_cache",
+              "value": "on-error"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "proxycurl-request",
+      "name": "Fetch LinkedIn Profile",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse and normalize LinkedIn data\nconst raw = $input.first().json;\nconst personId = $('Webhook').first().json.body.person_id;\n\nconst profile = {\n  person_id: personId,\n  source: 'linkedin',\n  raw_data: {\n    full_name: raw.full_name || '',\n    headline: raw.headline || '',\n    summary: raw.summary || '',\n    occupation: raw.occupation || '',\n    city: raw.city || '',\n    state: raw.state || '',\n    country_full_name: raw.country_full_name || '',\n    profile_pic_url: raw.profile_pic_url || '',\n    experiences: (raw.experiences || []).map(exp => ({\n      title: exp.title,\n      company: exp.company,\n      description: exp.description,\n      starts_at: exp.starts_at,\n      ends_at: exp.ends_at,\n      location: exp.location\n    })),\n    education: (raw.education || []).map(edu => ({\n      school: edu.school,\n      degree_name: edu.degree_name,\n      field_of_study: edu.field_of_study,\n      starts_at: edu.starts_at,\n      ends_at: edu.ends_at\n    })),\n    skills: raw.skills || [],\n    certifications: (raw.certifications || []).map(c => c.name),\n    volunteer_work: (raw.volunteer_work || []).map(v => ({\n      title: v.title,\n      company: v.company,\n      cause: v.cause,\n      description: v.description\n    })),\n    languages: (raw.languages || []).map(l => l.name),\n    interests: raw.interests || [],\n    recommendations: raw.recommendations || []\n  }\n};\n\nreturn { json: profile };"
+      },
+      "id": "parse-linkedin",
+      "name": "Parse LinkedIn Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.NEXT_PUBLIC_SUPABASE_URL }}/rest/v1/scraped_data",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "person_id",
+              "value": "={{ $json.person_id }}"
+            },
+            {
+              "name": "source",
+              "value": "linkedin"
+            },
+            {
+              "name": "raw_data",
+              "value": "={{ JSON.stringify($json.raw_data) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "store-linkedin",
+      "name": "Store in Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [880, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, person_id: $('Webhook').first().json.body.person_id, source: 'linkedin', data: $('Parse LinkedIn Data').first().json.raw_data }) }}"
+      },
+      "id": "respond-webhook",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1100, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [{ "node": "Fetch LinkedIn Profile", "type": "main", "index": 0 }]
+      ]
+    },
+    "Fetch LinkedIn Profile": {
+      "main": [
+        [{ "node": "Parse LinkedIn Data", "type": "main", "index": 0 }]
+      ]
+    },
+    "Parse LinkedIn Data": {
+      "main": [
+        [{ "node": "Store in Supabase", "type": "main", "index": 0 }]
+      ]
+    },
+    "Store in Supabase": {
+      "main": [
+        [{ "node": "Respond", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [{ "name": "AgentMatch" }]
+}

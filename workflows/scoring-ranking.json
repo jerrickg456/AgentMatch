@@ -1,0 +1,134 @@
+{
+  "name": "AgentMatch - Scoring & Ranking",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "score-date",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [220, 300],
+      "webhookId": "score-date"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare scoring prompt\nconst input = $input.first().json.body || $input.first().json;\n\nconst scoringPrompt = `You just had a dating conversation as ${input.scorer_name} with ${input.target_name}.\n\nHere is the full conversation:\n${(input.messages || []).map(m => `${m.name}: ${m.content}`).join('\\n')}\n\nYour profile:\n${input.scorer_summary || ''}\n\nTheir profile:\n${input.target_summary || ''}\n\nRate your compatibility with ${input.target_name} on these dimensions (each 0.0 to 10.0):\n\n1. shared_interests - How much do your hobbies and interests overlap?\n2. communication_style - How well did your conversational styles mesh?\n3. lifestyle_alignment - How compatible are your daily routines and lifestyle?\n4. intellectual_match - How stimulating was the intellectual connection?\n5. ambition_alignment - How aligned are your career drives and goals?\n6. emotional_resonance - How emotionally compatible do you feel?\n7. creative_compatibility - How well do your creative/artistic sides match?\n8. energy_match - How well do your energy levels complement each other?\n\nAlso provide:\n- overall_score: A weighted average (0.0-10.0)\n- reasoning: 2-3 sentences explaining your assessment\n\nRespond ONLY with a JSON object with these exact keys. No markdown.`;\n\nreturn {\n  json: {\n    ...input,\n    scoring_prompt: scoringPrompt\n  }\n};"
+      },
+      "id": "prepare-scoring",
+      "name": "Prepare Scoring Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o-mini",
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are a dating compatibility scorer. You evaluate how compatible two people are based on their dating conversation. Always respond with valid JSON only."
+            },
+            {
+              "role": "user",
+              "content": "={{ $json.scoring_prompt }}"
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.3,
+          "maxTokens": 500
+        }
+      },
+      "id": "ai-score",
+      "name": "AI Score",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [660, 300],
+      "credentials": {
+        "openAiApi": { "id": "openai-cred", "name": "OpenAI" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse score and store\nconst aiResponse = $input.first().json;\nconst input = $('Prepare Scoring Prompt').first().json;\n\nlet scores;\ntry {\n  const content = typeof aiResponse.message?.content === 'string' \n    ? aiResponse.message.content \n    : JSON.stringify(aiResponse);\n  scores = JSON.parse(content.replace(/```json\\n?|```\\n?/g, ''));\n} catch (e) {\n  scores = {\n    shared_interests: 5,\n    communication_style: 5,\n    lifestyle_alignment: 5,\n    intellectual_match: 5,\n    ambition_alignment: 5,\n    emotional_resonance: 5,\n    creative_compatibility: 5,\n    energy_match: 5,\n    overall_score: 5,\n    reasoning: 'Unable to parse AI response'\n  };\n}\n\nreturn {\n  json: {\n    date_id: input.date_id,\n    scorer_id: input.scorer_id,\n    target_id: input.target_id,\n    shared_interests: scores.shared_interests || 0,\n    communication_style: scores.communication_style || 0,\n    lifestyle_alignment: scores.lifestyle_alignment || 0,\n    intellectual_match: scores.intellectual_match || 0,\n    ambition_alignment: scores.ambition_alignment || 0,\n    emotional_resonance: scores.emotional_resonance || 0,\n    creative_compatibility: scores.creative_compatibility || 0,\n    energy_match: scores.energy_match || 0,\n    overall_score: scores.overall_score || 0,\n    reasoning: scores.reasoning || ''\n  }\n};"
+      },
+      "id": "parse-score",
+      "name": "Parse Score",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.NEXT_PUBLIC_SUPABASE_URL }}/rest/v1/scores",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Authorization", "value": "Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=representation" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "store-score",
+      "name": "Store Score",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1100, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, score: $json }) }}"
+      },
+      "id": "respond-webhook",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1320, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [{ "node": "Prepare Scoring Prompt", "type": "main", "index": 0 }]
+      ]
+    },
+    "Prepare Scoring Prompt": {
+      "main": [
+        [{ "node": "AI Score", "type": "main", "index": 0 }]
+      ]
+    },
+    "AI Score": {
+      "main": [
+        [{ "node": "Parse Score", "type": "main", "index": 0 }]
+      ]
+    },
+    "Parse Score": {
+      "main": [
+        [{ "node": "Store Score", "type": "main", "index": 0 }]
+      ]
+    },
+    "Store Score": {
+      "main": [
+        [{ "node": "Respond", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [{ "name": "AgentMatch" }]
+}
