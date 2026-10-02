@@ -54,15 +54,20 @@ async function simulateSingleDate(targetDate: any, supabase: any) {
     if (simRes.ok) {
       const simData = await simRes.json();
       if (simData.messages && Array.isArray(simData.messages) && simData.messages.length > 0) {
-        messages = simData.messages;
-        providerUsed = simData.provider_used || "n8n (Groq)";
+        const isStatic =
+          simData.provider_used?.includes("Deterministic") ||
+          (simData.messages[0]?.content && simData.messages[0].content.includes("confession to make"));
+        if (!isStatic) {
+          messages = simData.messages;
+          providerUsed = simData.provider_used || "n8n (Groq)";
+        }
       }
     }
   } catch {
-    // Continue to fallback
+    // Continue to Groq fallback
   }
 
-  // Direct Groq call fallback if n8n didn't return messages
+  // Direct Groq AI call: Guarantees 100% dynamic, personalized, witty dialogue
   if (messages.length === 0) {
     const groqKeys = [
       process.env.GROQ_API_KEY,
@@ -71,22 +76,27 @@ async function simulateSingleDate(targetDate: any, supabase: any) {
     ].filter(Boolean) as string[];
 
     const simPrompt = `You are an AI dating conversation simulator for AgentMatch.
-Simulate an authentic, engaging, witty multi-turn first date dialogue between two agents representing real people:
+Simulate a lively, authentic, playfully flirty, and witty first date dialogue between two agents representing real people based on their real backgrounds:
+
 Agent A: ${nameA}
-- Occupation: ${profileDataA.occupation || "Tech Innovator"}
-- Hobbies: ${(profileDataA.hobbies || []).join(", ")}
-- Interests: ${(profileDataA.interests || []).join(", ")}
-- Values: ${(profileDataA.values || []).join(", ")}
+- Occupation / Headline: ${profileDataA.occupation || "Tech Innovator & ML Engineer"}
+- Education / College: ${profileDataA.education || "SMVEC"}
+- Hobbies: ${(profileDataA.hobbies || []).join(", ") || "Hackathons, Building Prototypes"}
+- Interests: ${(profileDataA.interests || []).join(", ") || "AI, Cloud, System Architecture"}
+- Values: ${(profileDataA.values || []).join(", ") || "Ambition, Creativity, Excellence"}
 
 Agent B: ${nameB}
-- Occupation: ${profileDataB.occupation || "Creative Builder"}
-- Hobbies: ${(profileDataB.hobbies || []).join(", ")}
-- Interests: ${(profileDataB.interests || []).join(", ")}
-- Values: ${(profileDataB.values || []).join(", ")}
+- Occupation / Headline: ${profileDataB.occupation || "AI Builder & Software Developer"}
+- Education / College: ${profileDataB.education || "SMVEC"}
+- Hobbies: ${(profileDataB.hobbies || []).join(", ") || "Chess, Hackathons, Tech exploration"}
+- Interests: ${(profileDataB.interests || []).join(", ") || "LLMs, RAG, Quantum Computing"}
+- Values: ${(profileDataB.values || []).join(", ") || "Innovation, Growth, Authenticity"}
 
 Rules:
 - 5 to 6 alternating turns total
-- Authentic, intellectual, witty, mutual respect for their passions and achievements
+- Make it 100% authentic, witty, charismatic, and playfully teasing.
+- Reference their actual hackathons, college campus, chess vs coding sprints, and projects.
+- Never use repetitive stock boilerplate or "I have a confession to make".
 - Return ONLY a JSON object:
 {
   "messages": [
@@ -102,14 +112,16 @@ Rules:
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${key}`,
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AgentMatch/1.0",
           },
           body: JSON.stringify({
             model: "openai/gpt-oss-120b",
             messages: [
               { role: "system", content: simPrompt },
-              { role: "user", content: "Begin authentic date dialogue" },
+              { role: "user", content: `Generate a fresh, witty first date dialogue between ${nameA} and ${nameB}` },
             ],
             response_format: { type: "json_object" },
+            temperature: 0.85,
           }),
         });
 
