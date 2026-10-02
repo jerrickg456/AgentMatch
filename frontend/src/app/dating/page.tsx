@@ -12,7 +12,6 @@ import {
   Users,
   ArrowRight,
   Sparkles,
-  ArrowDownCircle,
   Filter,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -29,12 +28,8 @@ function DatingContent() {
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<DateRecord | null>(null);
 
-  // Chat scroll management
+  // Chat scroll management - 100% manual user scrolling
   const chatContainerRef = useRef<HTMLDivElement>(null);
-  const isUserScrolledUpRef = useRef<boolean>(false);
-  const [showJumpToBottom, setShowJumpToBottom] = useState<boolean>(false);
-  const lastSelectedDateIdRef = useRef<string | null>(null);
-  const lastMessageCountRef = useRef<number>(0);
 
   const [isSimulating, setIsSimulating] = useState(false);
   const isSimulatingRef = useRef(false);
@@ -66,61 +61,6 @@ function DatingContent() {
     const interval = setInterval(fetchDates, 3000);
     return () => clearInterval(interval);
   }, [sessionId]);
-
-  // Handle smart scroll when date or messages change
-  useEffect(() => {
-    if (!selectedDate) return;
-
-    const currentMsgCount = selectedDate.messages?.length || 0;
-    const isNewDate = selectedDate.id !== lastSelectedDateIdRef.current;
-
-    if (isNewDate) {
-      lastSelectedDateIdRef.current = selectedDate.id;
-      lastMessageCountRef.current = currentMsgCount;
-      isUserScrolledUpRef.current = false;
-      setShowJumpToBottom(false);
-
-      // Smoothly scroll to bottom on newly selected date
-      setTimeout(() => {
-        if (chatContainerRef.current) {
-          chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
-        }
-      }, 50);
-      return;
-    }
-
-    // Only scroll if message count genuinely INCREASED and user has NOT scrolled up to read
-    if (currentMsgCount > lastMessageCountRef.current) {
-      lastMessageCountRef.current = currentMsgCount;
-
-      if (!isUserScrolledUpRef.current && chatContainerRef.current) {
-        chatContainerRef.current.scrollTo({
-          top: chatContainerRef.current.scrollHeight,
-          behavior: "smooth",
-        });
-      }
-    }
-  }, [selectedDate?.id, selectedDate?.messages?.length]);
-
-  const handleChatScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const el = e.currentTarget;
-    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    // Consider user reading if they scrolled up more than 80px from bottom
-    const isScrolledUp = distanceFromBottom > 80;
-    isUserScrolledUpRef.current = isScrolledUp;
-    setShowJumpToBottom(isScrolledUp);
-  };
-
-  const scrollToBottom = () => {
-    if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTo({
-        top: chatContainerRef.current.scrollHeight,
-        behavior: "smooth",
-      });
-      isUserScrolledUpRef.current = false;
-      setShowJumpToBottom(false);
-    }
-  };
 
   async function fetchDates() {
     try {
@@ -438,11 +378,10 @@ function DatingContent() {
                   )}
                 </div>
 
-                {/* Messages scroll container */}
+                {/* Messages scroll container (100% manual scroll) */}
                 <div
                   ref={chatContainerRef}
-                  onScroll={handleChatScroll}
-                  className="p-5 h-[560px] max-h-[68vh] overflow-y-auto space-y-4 relative scroll-smooth"
+                  className="p-5 h-[580px] max-h-[70vh] overflow-y-auto space-y-4 relative"
                 >
                   <AnimatePresence>
                     {selectedDate.messages && selectedDate.messages.length > 0 ? (
@@ -507,20 +446,6 @@ function DatingContent() {
                     </div>
                   )}
                 </div>
-
-                {/* Floating Jump to Bottom Button */}
-                {showJumpToBottom && (
-                  <motion.button
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 10 }}
-                    onClick={scrollToBottom}
-                    className="absolute bottom-16 right-6 px-3 py-1.5 rounded-full bg-[var(--color-bg-card)] border border-[var(--color-border)] text-xs text-[var(--color-text-primary)] shadow-lg hover:bg-[var(--color-bg-card-hover)] flex items-center gap-1.5 z-20 backdrop-blur-md"
-                  >
-                    <ArrowDownCircle className="w-4 h-4 text-[var(--color-accent-pink)]" />
-                    Jump to latest
-                  </motion.button>
-                )}
 
                 {/* Date summary footer */}
                 {selectedDate.status === "completed" && (
