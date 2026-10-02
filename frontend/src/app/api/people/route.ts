@@ -128,6 +128,11 @@ export async function POST(request: NextRequest) {
           education: scraped?.education || [],
           experiences: scraped?.experiences || [],
           raw_data: scraped?.raw || {},
+          groq_api_key: process.env.GROQ_API_KEY,
+          groq_fallback_keys: [
+            process.env.GROQ_API_KEY_FALLBACK_1,
+            process.env.GROQ_API_KEY_FALLBACK_2,
+          ].filter(Boolean),
         }),
       })
         .then(async (res) => {
